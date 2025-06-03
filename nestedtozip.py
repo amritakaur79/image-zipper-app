@@ -2,34 +2,25 @@ import streamlit as st
 import zipfile
 import os
 from io import BytesIO
-from PIL import Image
 
-# Title
-st.title("📂 Zip All Images from Nested Folders")
+st.title("📦 Extract Images from Folder ZIP")
 
-st.markdown("Upload a folder that contains subfolders with images. This tool will find all image files and let you download them as a single ZIP file.")
+uploaded_zip = st.file_uploader("Upload a ZIP file containing all your folders with images", type=["zip"])
 
-# Upload multiple files (simulate folder upload)
-uploaded_files = st.file_uploader("Upload your image files (from subfolders too)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+if uploaded_zip:
+    # Extract zip to memory
+    with zipfile.ZipFile(uploaded_zip, 'r') as zip_ref:
+        image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
-if uploaded_files:
-    # Create an in-memory zip file
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for file in uploaded_files:
-            # Reconstruct the folder structure from the uploaded file's path
-            folder_path = os.path.dirname(file.name)
-            filename = os.path.basename(file.name)
-            zip_path = os.path.join(folder_path, filename)
+        if not image_files:
+            st.error("No image files found in the ZIP.")
+        else:
+            # Create a new ZIP containing just the images
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as image_zip:
+                for file in image_files:
+                    image_zip.writestr(file, zip_ref.read(file))
 
-            # Write each image to the zip file
-            zipf.writestr(zip_path, file.read())
-
-    # Prepare for download
-    zip_buffer.seek(0)
-    st.download_button(
-        label="⬇️ Download All Images as ZIP",
-        data=zip_buffer,
-        file_name="all_images.zip",
-        mime="application/zip"
-    )
+            zip_buffer.seek(0)
+            st.success(f"Found {len(image_files)} image(s).")
+            st.download_button("⬇️ Download All Images Only", data=zip_buffer, file_name="cleaned_images.zip", mime="application/zip")
